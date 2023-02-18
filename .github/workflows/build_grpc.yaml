@@ -1,0 +1,93 @@
+name: Build grpc wheel on IBMZ
+
+on:
+  workflow_call:
+    inputs:
+      release:
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+
+    steps:
+      - uses: actions/checkout@v2  
+      - uses: uraimo/run-on-arch-action@v2.2.0
+        name: Install dependencies and build grpc
+        id: build
+        with:
+          arch: s390x
+          distro: ubuntu18.04
+          
+          # Create an artifacts directory
+          setup: |
+            mkdir -p "${PWD}/artifacts"
+          
+          # Mount the artifacts directory as /artifacts in the container
+          dockerRunArgs: |
+            --volume "${PWD}/artifacts:/artifacts"
+            
+      
+          run: |   
+            apt-get update -y
+            apt-get install -y build-essential autoconf libtool pkg-config git software-properties-common curl wget 
+            add-apt-repository ppa:deadsnakes/ppa -y
+            apt-get install python3.9 python3-pip python3-dev libpython3.9-dev -y
+            
+            #Installing openssl with 1.1.1k version
+            wget https://www.openssl.org/source/old/1.1.1/openssl-1.1.1k.tar.gz
+            mkdir /opt/openssl
+            tar xfzv openssl-1.1.1k.tar.gz --directory /opt/openssl
+            cd /opt/openssl/openssl-1.1.1k/
+            ./config --prefix=/opt/openssl --openssldir=/opt/openssl/ssl
+            make 
+            make install
+            mv /usr/bin/openssl /usr/bin/openssl.old
+            ln -s /opt/openssl/bin/openssl /usr/bin/openssl
+            cd /etc/ld.so.conf.d
+            echo "/opt/openssl/lib" > openssl.conf
+            ldconfig
+            ldconfig -v
+            openssl version
+            cd ~
+            
+            #Building grpc
+            echo "Building grpc ${{ inputs.release }}"
+            python3.9 -m pip install --upgrade pip
+            python3.9 -m pip install -U wheel setuptools
+            apt-get install -y libssl-dev libffi-dev git
+            export REPO_ROOT=grpc
+            git clone -b v${{ inputs.release }} https://github.com/grpc/grpc $REPO_ROOT
+            cd $REPO_ROOT
+            git submodule update --init
+            python3.9 -m pip install -r requirements.txt
+            export GRPC_PYTHON_BUILD_WITH_CYTHON=1 
+            export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1 
+            python3.9 -m pip install --only-binary :all .
+            python3.9 setup.py bdist_wheel
+            
+            find / -name "cygrpc.cpython-39-s390x-linux-gnu.so"
+            grpc_gnu=$(find / -name "cygrpc.cpython-39-s390x-linux-gnu.so")
+            echo $grpc_gnu
+            ldd $grpc_gnu
+            
+            WHEEL_PATH=$(find /root/$REPO_ROOT/dist/ -name "grpcio*.whl")
+            WHEEL_NAME=$(basename $(find /root/$REPO_ROOT/dist/ -name "grpcio*.whl"))
+            echo $WHEEL_PATH
+            echo $WHEEL_NAME
+            cp $WHEEL_PATH /artifacts/$WHEEL_NAME
+            ls /artifacts/            
+                      
+      - name: Create Release
+        id: create_release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ inputs.release }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          artifacts: ./artifacts/grpcio-${{ inputs.release }}-cp39-cp39-linux_s390x.whl
+          name: ${{ inputs.release }}
+          replacesArtifacts: true
+          draft: false
+          prerelease: false
