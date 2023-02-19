@@ -11,7 +11,7 @@ jobs:
   build:
     runs-on: ubuntu-18.04
     permissions:
-      actions: read-all|write-all
+      actions: read|write
     steps:
       - uses: actions/checkout@v2  
       - uses: uraimo/run-on-arch-action@v2.2.0
