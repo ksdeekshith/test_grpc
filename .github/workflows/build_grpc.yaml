@@ -86,8 +86,8 @@ jobs:
             echo $grpc_gnu
             ldd $grpc_gnu
             
-            WHEEL_PATH=$(find / -name "grpcio*.whl")
-            WHEEL_NAME=$(basename $(find / -name "grpcio*.whl"))
+            WHEEL_PATH=$(find /tmp/grpc/dist/ -name "grpcio*.whl")
+            WHEEL_NAME=$(basename $(find /tmp/grpc/dist/ -name "grpcio*.whl"))
             echo $WHEEL_PATH
             echo $WHEEL_NAME
             cp $WHEEL_PATH /artifacts/$WHEEL_NAME
