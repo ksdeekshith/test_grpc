@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-18.04
-    permissions: write-all
+    
     steps:
       - uses: actions/checkout@v2  
       - uses: uraimo/run-on-arch-action@v2.2.0
@@ -80,8 +80,6 @@ jobs:
             python3.9 -m pip install --only-binary :all .
             python3.9 setup.py bdist_wheel
             
-            find / -name "grpcio*.whl"
-            find / -name "cygrpc.cpython-39-s390x-linux-gnu.so"
             grpc_gnu=$(find / -name "cygrpc.cpython-39-s390x-linux-gnu.so")
             echo $grpc_gnu
             ldd $grpc_gnu
